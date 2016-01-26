@@ -13,7 +13,7 @@ class ViewController: NSViewController, CBCentralManagerDelegate, CBPeripheralDe
     var centralManager:CBCentralManager!
     var discovered = false
     var connectingPeripheral: CBPeripheral!
-    
+    let statusItem = NSStatusBar.systemStatusBar().statusItemWithLength(NSVariableStatusItemLength)
     
     @IBOutlet weak var stepsView: NSTextField!
     @IBOutlet weak var spinnerView: NSProgressIndicator!
@@ -49,15 +49,19 @@ class ViewController: NSViewController, CBCentralManagerDelegate, CBPeripheralDe
     
     func centralManager(central: CBCentralManager, didDiscoverPeripheral peripheral: CBPeripheral, advertisementData: [String : AnyObject], RSSI: NSNumber)
     {
-        //println("Discovered: " + peripheral.name)
-        if(peripheral.name == /*"MI1A" */ "MIO GLOBAL" ) {
-            stepsView.stringValue = "Connecting to \(peripheral.name)"
-            self.connectingPeripheral = peripheral
-            centralManager.stopScan()
-            self.centralManager.connectPeripheral(peripheral, options: nil)
-        } else {
-            print("skipped: \(peripheral.name)")
+        if let name = peripheral.name {
+            //println("Discovered: " + peripheral.name)
+            if(name == /*"MI1A" "MI_SCALE" */ "MIO GLOBAL") {
+                stepsView.stringValue = "Connecting to \(name)"
+                self.connectingPeripheral = peripheral
+                centralManager.stopScan()
+                self.centralManager.connectPeripheral(peripheral, options: nil)
+            } else {
+                print("skipped: \(name)")
+            }
+       
         }
+        
     }
     
     func centralManagerDidUpdateState(central: CBCentralManager) { //BLE status
@@ -124,6 +128,11 @@ class ViewController: NSViewController, CBCentralManagerDelegate, CBPeripheralDe
             for cc in charactericsArr
             {
                 peripheral.setNotifyValue(true, forCharacteristic: cc)
+            
+                if let char = cc.value {
+                    let u16 = UnsafePointer<Int>(char.bytes).memory
+                    print("value: \(u16) for UUID: \(cc.UUID.UUIDString)")
+                }
                 
                 if cc.UUID.UUIDString == "FF0F"{
                     output("Characteristic", data: cc)
@@ -171,10 +180,11 @@ class ViewController: NSViewController, CBCentralManagerDelegate, CBPeripheralDe
             
             if let cc = characteristic.value {
                 
-                let u16 = UnsafePointer<UInt8>(cc.bytes)[1]
-                print("\(u16)")
-                batteryView.stringValue = "\(u16) bpm"
-                batteryView.textColor = NSColor(calibratedRed: CGFloat(u16 / 255), green: CGFloat(u16 / 128), blue: CGFloat(u16 / 64), alpha: 1.0)
+                let bpm = UnsafePointer<UInt8>(cc.bytes)[1]
+                print("\(bpm)")
+                batteryView.stringValue = "\(bpm) bpm"
+                batteryView.textColor = NSColor(calibratedRed: CGFloat(bpm / 255), green: CGFloat(bpm / 128), blue: CGFloat(bpm / 64), alpha: 1.0)
+                statusItem.title = "\(bpm) bpm"
             }
         }
     }
