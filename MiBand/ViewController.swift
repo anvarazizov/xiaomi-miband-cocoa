@@ -18,9 +18,9 @@ class ViewController: NSViewController, CBCentralManagerDelegate, CBPeripheralDe
     @IBOutlet weak var stepsView: NSTextField!
     @IBOutlet weak var spinnerView: NSProgressIndicator!
     @IBOutlet weak var batteryView: NSTextField!
-
+    
     @IBAction func refreshButton(sender: AnyObject) {
-                discoverDevices()
+        discoverDevices()
     }
     
     override func viewDidLoad() {
@@ -46,20 +46,18 @@ class ViewController: NSViewController, CBCentralManagerDelegate, CBPeripheralDe
         print("discovery", terminator: "")
         centralManager.scanForPeripheralsWithServices(nil, options: nil)
     }
-  
+    
     func centralManager(central: CBCentralManager, didDiscoverPeripheral peripheral: CBPeripheral, advertisementData: [String : AnyObject], RSSI: NSNumber)
     {
-        
         //println("Discovered: " + peripheral.name)
-        if(peripheral.name == "MI") {
-            stepsView.stringValue = "Connecting to MI"
+        if(peripheral.name == /*"MI1A" */ "MIO GLOBAL" ) {
+            stepsView.stringValue = "Connecting to \(peripheral.name)"
             self.connectingPeripheral = peripheral
             centralManager.stopScan()
             self.centralManager.connectPeripheral(peripheral, options: nil)
         } else {
-            print("skipped " + peripheral.name!, terminator: "" )
+            print("skipped: \(peripheral.name)")
         }
-        
     }
     
     func centralManagerDidUpdateState(central: CBCentralManager) { //BLE status
@@ -120,7 +118,7 @@ class ViewController: NSViewController, CBCentralManagerDelegate, CBPeripheralDe
     }
     
     func peripheral(peripheral: CBPeripheral, didDiscoverCharacteristicsForService service: CBService, error: NSError?) {
-      
+        
         if let charactericsArr = service.characteristics  as [CBCharacteristic]!
         {
             for cc in charactericsArr
@@ -138,6 +136,18 @@ class ViewController: NSViewController, CBCentralManagerDelegate, CBPeripheralDe
                 } else if cc.UUID.UUIDString == "FF0C" {
                     print("READING BATTERY")
                     peripheral.readValueForCharacteristic(cc)
+                } else if cc.UUID.UUIDString == "FF05" {
+                    let data: NSData = "8, 2".dataUsingEncoding(NSUTF8StringEncoding)!
+                    peripheral.writeValue(data, forCharacteristic: cc, type: CBCharacteristicWriteType.WithResponse)
+                    output("Characteristic", data: cc)
+                    
+                    dispatch_after(10, dispatch_get_main_queue(), { () -> Void in
+                        let data: NSData = "19".dataUsingEncoding(NSUTF8StringEncoding)!
+                        peripheral.writeValue(data, forCharacteristic: cc, type: CBCharacteristicWriteType.WithResponse)
+                        self.output("Characteristic", data: cc)
+                    })
+                } else if cc.UUID.UUIDString == "2A37" {
+                    peripheral.readValueForCharacteristic(cc)
                 }
             }
             
@@ -146,7 +156,7 @@ class ViewController: NSViewController, CBCentralManagerDelegate, CBPeripheralDe
     
     func peripheral(peripheral: CBPeripheral, didUpdateValueForCharacteristic characteristic: CBCharacteristic, error: NSError?) {
         
-        output("Data for "+characteristic.UUID.UUIDString, data: characteristic.value!)
+        //        output("Data for "+characteristic.UUID.UUIDString, data: characteristic.value!)
         
         if(characteristic.UUID.UUIDString == "FF06") {
             spinnerView.hidden = true
@@ -155,21 +165,25 @@ class ViewController: NSViewController, CBCentralManagerDelegate, CBPeripheralDe
         } else if(characteristic.UUID.UUIDString == "FF0C") {
             spinnerView.hidden = true
             var u16 = UnsafePointer<Int32>(characteristic.value!.bytes).memory
-            u16 =  u16 & 0xff
+            u16 = u16 & 0xff
             batteryView.stringValue = ("\(u16) % charged")
+        } else if (characteristic.UUID.UUIDString == "2A37") {
+            
+            if let cc = characteristic.value {
+                
+                let u16 = UnsafePointer<UInt8>(cc.bytes)[1]
+                print("\(u16)")
+                batteryView.stringValue = "\(u16) bpm"
+                batteryView.textColor = NSColor(calibratedRed: CGFloat(u16 / 255), green: CGFloat(u16 / 128), blue: CGFloat(u16 / 64), alpha: 1.0)
+            }
         }
-        
-        
     }
     
     func output(description: String, data: AnyObject){
         print("\(description): \(data)", terminator: "")
-       // textField.text = textField.text + "\(description): \(data)\n"
+        // textField.text = textField.text + "\(description): \(data)\n"
     }
     
-    
-    
-
     override var representedObject: AnyObject? {
         didSet {
         }
