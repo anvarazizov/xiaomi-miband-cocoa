@@ -185,7 +185,23 @@ class ViewController: NSViewController, CBCentralManagerDelegate, CBPeripheralDe
                 batteryView.stringValue = "\(bpm) bpm"
                 batteryView.textColor = NSColor(calibratedRed: CGFloat(bpm / 255), green: CGFloat(bpm / 128), blue: CGFloat(bpm / 64), alpha: 1.0)
                 statusItem.title = "\(bpm) bpm"
+                updateFile("\(bpm)")
             }
+        }
+    }
+    
+    func updateFile(bpm: NSString) {
+        let paths = NSSearchPathForDirectoriesInDomains(.DesktopDirectory, .UserDomainMask, true)
+        let desktopDirectory = paths[0]
+        let filename = "\(desktopDirectory)/bpm.txt"
+        
+        do {
+            var data: String = ""
+            try data = String(contentsOfFile: filename)
+            let bpmString = "\(data) \n \(bpm)"
+            try bpmString.writeToFile(filename, atomically: false, encoding: NSUTF8StringEncoding)
+        } catch  {
+            print(error)
         }
     }
     
